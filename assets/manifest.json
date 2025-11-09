@@ -33,6 +33,14 @@
 			"States": [{ "Title": "0GB", "FontSize": 14 }]
 		},
 		{
+			"UUID": "me.amankhanna.oasystem.gpu",
+			"Name": "GPU",
+			"Icon": "icon",
+			"Tooltip": "Displays GPU utilisation",
+			"Controllers": ["Keypad", "Encoder"],
+			"States": [{ "Title": "0%", "FontSize": 16 }]
+		},
+		{
 			"UUID": "me.amankhanna.oasystem.uptime",
 			"Name": "Uptime",
 			"Icon": "icon",
