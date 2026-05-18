@@ -47,6 +47,14 @@
 			"Tooltip": "Displays operating system information",
 			"Controllers": ["Keypad", "Encoder"],
 			"States": [{ "Title": "Unknown", "FontSize": 12 }]
+		},
+		{
+			"UUID": "me.amankhanna.oasystem.temperature",
+			"Name": "Temperature",
+			"Icon": "icon",
+			"Tooltip": "Displays CPU temperature",
+			"Controllers": ["Keypad", "Encoder"],
+			"States": [{ "Title": "--°C", "FontSize": 18 }]
 		}
 	]
 }

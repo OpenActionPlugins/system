@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use openaction::*;
 
-use sysinfo::System;
+use sysinfo::{Components, System};
 
 struct CPUAction;
 #[async_trait]
@@ -22,6 +22,13 @@ struct UptimeAction;
 #[async_trait]
 impl Action for UptimeAction {
 	const UUID: ActionUuid = "me.amankhanna.oasystem.uptime";
+	type Settings = HashMap<String, String>;
+}
+
+struct TemperatureAction;
+#[async_trait]
+impl Action for TemperatureAction {
+	const UUID: ActionUuid = "me.amankhanna.oasystem.temperature";
 	type Settings = HashMap<String, String>;
 }
 
@@ -65,6 +72,7 @@ async fn main() -> OpenActionResult<()> {
 
 	tokio::spawn(async {
 		let mut system = System::new_all();
+		let mut components = Components::new_with_refreshed_list();
 		loop {
 			system.refresh_cpu_usage();
 			tokio::time::sleep(std::time::Duration::from_secs(1)).await;
@@ -79,6 +87,30 @@ async fn main() -> OpenActionResult<()> {
 			let ram_usage = format!("{:.1}GB", (system.used_memory() as f32) / 1073741824.0);
 			for instance in visible_instances(RAMAction::UUID).await {
 				let _ = instance.set_title(Some(ram_usage.clone()), None).await;
+			}
+
+			components.refresh(true);
+			let cpu_temp = components
+				.iter()
+				.filter(|c| {
+					let label = c.label();
+					label.contains("Core ")
+						|| label.starts_with("coretemp")
+						|| label.starts_with("Tctl")
+						|| label.starts_with("Tdie")
+						|| label.contains("Package")
+						|| label.contains("x86_pkg_temp")
+				})
+				.filter_map(|c| c.temperature())
+				.fold(f32::MIN, f32::max);
+
+			let temp_str = if cpu_temp > f32::MIN {
+				format!("{:.0}°C", cpu_temp)
+			} else {
+				"N/A".to_string()
+			};
+			for instance in visible_instances(TemperatureAction::UUID).await {
+				let _ = instance.set_title(Some(temp_str.clone()), None).await;
 			}
 
 			{
@@ -104,6 +136,7 @@ async fn main() -> OpenActionResult<()> {
 	register_action(RAMAction).await;
 	register_action(UptimeAction).await;
 	register_action(OSAction).await;
+	register_action(TemperatureAction).await;
 
 	run(std::env::args().collect()).await
 }
