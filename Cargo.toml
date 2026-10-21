@@ -3,9 +3,9 @@ name = "oasystem"
 edition = "2024"
 
 [dependencies]
-openaction = "2.1"
+openaction = "2.8"
 serde = "1.0"
-tokio = { version = "1.47", features = ["rt-multi-thread", "macros", "time"] }
+tokio = { version = "1.54", features = ["rt-multi-thread", "macros", "time"] }
 log = "0.4"
 simplelog = "0.12"
-sysinfo = "0.37"
+sysinfo = "0.39"
