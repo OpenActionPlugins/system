@@ -36,17 +36,49 @@ impl Action for OSAction {
 		instance: &Instance,
 		_settings: &Self::Settings,
 	) -> OpenActionResult<()> {
-		instance
-			.set_title(
-				Some(
-					System::long_os_version()
-						.unwrap_or_else(|| "Unknown".to_owned())
-						.replace(" ", "\n"),
-				),
-				None,
-			)
-			.await
+		instance.set_title(Some(os_title()), None).await
 	}
+}
+
+/// Inside a Flatpak sandbox (e.g. the OpenDeck Flatpak), `/etc/os-release` describes the
+/// Flatpak runtime rather than the host, so read the host's copy exposed at `/run/host/os-release`.
+fn host_os_release() -> Option<String> {
+	if !std::path::Path::new("/.flatpak-info").exists() {
+		return None;
+	}
+	let contents = std::fs::read_to_string("/run/host/os-release").ok()?;
+	let field = |key: &str| {
+		contents.lines().find_map(|line| {
+			line.strip_prefix(key)?
+				.strip_prefix('=')
+				.map(|v| v.trim().trim_matches('"').to_owned())
+				.filter(|v| !v.is_empty())
+		})
+	};
+	let name = field("NAME").or_else(|| field("PRETTY_NAME"))?;
+	Some(join_name_version(name, field("VERSION_ID")))
+}
+
+fn join_name_version(name: String, version: Option<String>) -> String {
+	match version {
+		Some(version) => format!("{name} {version}"),
+		None => name,
+	}
+}
+
+/// On Linux, show the distribution as "NAME VERSION_ID" (e.g. "Bazzite 45").
+/// Other platforms keep sysinfo's long OS version (e.g. "macOS 15.1 Sequoia").
+fn os_title() -> String {
+	host_os_release()
+		.or_else(|| {
+			if cfg!(target_os = "linux") {
+				System::name().map(|name| join_name_version(name, System::os_version()))
+			} else {
+				System::long_os_version()
+			}
+		})
+		.unwrap_or_else(|| "Unknown".to_owned())
+		.replace(' ', "\n")
 }
 
 #[tokio::main]
@@ -65,7 +97,14 @@ async fn main() -> OpenActionResult<()> {
 
 	tokio::spawn(async {
 		let mut system = System::new_all();
+		let os_title = os_title();
+		log::info!("OS title: {os_title:?}");
 		loop {
+			// Re-send periodically so the title is restored if the one sent from `will_appear` was lost.
+			for instance in visible_instances(OSAction::UUID).await {
+				let _ = instance.set_title(Some(os_title.clone()), None).await;
+			}
+
 			system.refresh_cpu_usage();
 			tokio::time::sleep(std::time::Duration::from_secs(1)).await;
 			system.refresh_cpu_usage();
